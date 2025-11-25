@@ -27,7 +27,10 @@ async function run() {
 
     const myDB = client.db("skillflow");
     const courseCollection = myDB.collection("courses");
+    const userCollection = myDB.collection("users");
 
+
+    // course related APIS
    app.get("/courses", async (req, res) => {
   try {
     const type = req.query.type;
@@ -44,6 +47,17 @@ async function run() {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
+
+// user releated APIS
+app.post("/users", async (req, res) =>{
+  const userInfo = req.body;
+  const existingUser = await userCollection.findOne({ email: userInfo.email });
+   if (existingUser) {
+    return res.status(400).send({ message: "User with this email already exists" });
+  }
+  const result = await userCollection.insertOne(userInfo);
+  res.send(result);
+})
 
 
 
