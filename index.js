@@ -4,11 +4,37 @@ const app = express();
 var cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
+const admin = require("firebase-admin");
+var serviceAccount = require("./firebase-admin-sdk-key.json");
 const port = 5000;
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 // MIDDLEWEAR
 app.use(express.json());
 app.use(cors());
+
+// verify firebase token
+const verifyFireBaseToke = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).send({ message: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+
+    req.decoded_email = decoded.email;
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "Invalid or expired token" });
+  }
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8xsgmgv.mongodb.net/?appName=Cluster0`;
 
@@ -33,16 +59,19 @@ async function run() {
     app.get("/courses", async (req, res) => {
       try {
         const type = req.query.type;
+        const email = req.query.email;
         let query = {};
-        const { email } = req.query;
-        if (email) {
-          query.email = email;
-        }
+
         if (type) {
           query.type = { $regex: new RegExp(type, "i") };
         }
 
+        if (email) {
+          query.email = email;
+        }
+
         const result = await courseCollection.find(query).toArray();
+
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Internal Server Error" });
@@ -66,6 +95,14 @@ async function run() {
         console.error(error);
         res.status(500).send({ message: "Server error" });
       }
+    });
+
+    app.delete("/courses/:id", verifyFireBaseToke,  async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+     const result = await courseCollection.deleteOne(query);
+      res.send(result);
     });
 
     app.post("/courses", async (req, res) => {
