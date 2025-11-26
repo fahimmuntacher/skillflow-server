@@ -34,7 +34,10 @@ async function run() {
       try {
         const type = req.query.type;
         let query = {};
-
+        const { email } = req.query;
+        if (email) {
+          query.email = email;
+        }
         if (type) {
           query.type = { $regex: new RegExp(type, "i") };
         }
