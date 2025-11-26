@@ -1,14 +1,14 @@
-const express = require('express')
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const app = express()
-var cors = require('cors')
-const dotenv = require("dotenv")
-dotenv.config()
-const port = 5000
+const express = require("express");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const app = express();
+var cors = require("cors");
+const dotenv = require("dotenv");
+dotenv.config();
+const port = 5000;
 
 // MIDDLEWEAR
-app.use(express.json())
-app.use(cors())
+app.use(express.json());
+app.use(cors());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8xsgmgv.mongodb.net/?appName=Cluster0`;
 
@@ -17,7 +17,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -29,46 +29,68 @@ async function run() {
     const courseCollection = myDB.collection("courses");
     const userCollection = myDB.collection("users");
 
-
     // course related APIS
-   app.get("/courses", async (req, res) => {
-  try {
-    const type = req.query.type;
-    let query = {};
+    app.get("/courses", async (req, res) => {
+      try {
+        const type = req.query.type;
+        let query = {};
 
-    if (type) {
-      query.type = { $regex: new RegExp(type, "i") };  
-    }
+        if (type) {
+          query.type = { $regex: new RegExp(type, "i") };
+        }
 
-    const result = await courseCollection.find(query).toArray();
-    res.send(result);
+        const result = await courseCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Internal Server Error" });
+      }
+    });
 
-  } catch (error) {
-    res.status(500).send({ error: "Internal Server Error" });
-  }
-});
+    app.get("/courses/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        console.log("Requested ID:", id);
 
-// user releated APIS
-app.post("/users", async (req, res) =>{
-  const userInfo = req.body;
-  const existingUser = await userCollection.findOne({ email: userInfo.email });
-   if (existingUser) {
-    return res.status(400).send({ message: "User with this email already exists" });
-  }
-  const result = await userCollection.insertOne(userInfo);
-  res.send(result);
-})
+        const query = { _id: new ObjectId(id) };
+        const result = await courseCollection.findOne(query);
 
+        if (!result) {
+          return res.status(404).send({ message: "Course not found" });
+        }
 
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server error" });
+      }
+    });
 
+    app.post("/courses", async (req, res) => {
+      const courseInfo = req.body;
+      const result = await courseCollection.insertOne(courseInfo);
+      res.send(result);
+    });
 
-
-
-
+    // user releated APIS
+    app.post("/users", async (req, res) => {
+      const userInfo = req.body;
+      const existingUser = await userCollection.findOne({
+        email: userInfo.email,
+      });
+      if (existingUser) {
+        return res
+          .status(400)
+          .send({ message: "User with this email already exists" });
+      }
+      const result = await userCollection.insertOne(userInfo);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -76,13 +98,10 @@ app.post("/users", async (req, res) =>{
 }
 run().catch(console.dir);
 
-
-app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
-
-
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+  console.log(`Example app listening on port ${port}`);
+});
